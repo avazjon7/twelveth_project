@@ -1,28 +1,50 @@
-from django.shortcuts import render
-
-# Create your views here.
+# views.py
 from typing import Optional
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from transliterate import translit
 
 from online_shop.forms import CommentModelForm, OrderModelForm, ProductModelForm
 from online_shop.models import Category, Product, Comment
+from django.db.models import Q
 
 
-# Create your views here.
+def normalize_text(text):
+    text = text.lower()
+    transliterated_text = translit(text, 'ru', reversed=True)
+    return transliterated_text
 
 
 def product_list(request, category_id: Optional[int] = None):
     categories = Category.objects.all().order_by('id')
+    search = request.GET.get('q')
+    filter_type = request.GET.get('filter', '')
     if category_id:
-
-        products = Product.objects.filter(category=category_id)
-
+        if filter_type == 'expensive':
+            products = Product.objects.filter(category=category_id).order_by('-price')
+        elif filter_type == 'cheap':
+            products = Product.objects.filter(category=category_id).order_by('price')
+        elif filter_type == 'rating':
+            products = Product.objects.filter(Q(category=category_id) & Q(rating__gte=4)).order_by('-rating')
+        else:
+            products = Product.objects.filter(category=category_id)
     else:
-        products = Product.objects.all()
+        if filter_type == 'expensive':
+            products = Product.objects.all().order_by('-price')
+        elif filter_type == 'cheap':
+            products = Product.objects.all().order_by('price')
+        elif filter_type == 'rating':
+            products = Product.objects.filter(Q(rating__gte=4)).order_by('-rating')
+        else:
+            products = Product.objects.all()
+
+    if search:
+        normalized_search = normalize_text(search)
+        products = products.filter(
+            Q(name__icontains=normalized_search) | Q(comments__name__icontains=normalized_search))
+
     context = {
         'products': products,
         'categories': categories
@@ -31,29 +53,28 @@ def product_list(request, category_id: Optional[int] = None):
 
 
 def product_detail(request, product_id):
+    categories = Category.objects.all()
     product = Product.objects.get(id=product_id)
-    comments = Comment.objects.filter(product=product_id, is_provide=True).order_by('-id')
+
+    search_query = request.GET.get('q')
+    if search_query:
+        normalized_search = normalize_text(search_query)
+        comments = Comment.objects.filter(product=product_id, body__icontains=normalized_search,
+                                          is_provide=True).order_by('-id')
+    else:
+        comments = Comment.objects.filter(product=product_id, is_provide=True).order_by('-id')
+
+    related_products = Product.objects.filter(category=product.category).exclude(id=product_id)[:4]
+
     context = {
         'product': product,
-        'comments': comments
+        'comments': comments,
+        'categories': categories,
+        'related_products': related_products
     }
 
     return render(request, 'online_shop/detail.html', context)
 
-
-# def add_comment(request, product_id):
-#     product = get_object_or_404(Product, id=product_id)
-#     if request.method == 'POST':
-#         name = request.POST.get('name')
-#         email = request.POST.get('email')
-#         body = request.POST.get('body')
-#         comment = Comment(name=name, email=email, body=body)
-#         comment.product = product
-#         comment.save()
-#         return redirect('product_detail', product_id)
-#     else:
-#         pass
-#     return render(request, 'online_shop/detail.html')
 
 def add_comment(request, product_id):
     product = get_object_or_404(Product, id=product_id)
@@ -64,7 +85,6 @@ def add_comment(request, product_id):
             comment.product = product
             comment.save()
             return redirect('product_detail', product_id)
-
     else:
         form = CommentModelForm()
 
@@ -81,14 +101,12 @@ def add_order(request, product_id):
     form = OrderModelForm()
 
     if request.method == 'POST':
-
         form = OrderModelForm(request.POST)
         if form.is_valid():
             order = form.save(commit=False)
             order.product = product
             if product.quantity >= order.quantity:
                 product.quantity -= order.quantity
-                # add messaging
                 product.save()
                 order.save()
                 messages.add_message(
@@ -96,7 +114,6 @@ def add_order(request, product_id):
                     level=messages.SUCCESS,
                     message='Your order is successfully saved'
                 )
-
                 return redirect('product_detail', product_id)
             else:
                 messages.add_message(

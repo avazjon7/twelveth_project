@@ -1,10 +1,6 @@
 from django.db import models
+from online_shop.utils import normalize_text
 
-# Create your models here.
-from django.db import models
-
-
-# Create your models here.
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -34,8 +30,9 @@ class Product(BaseModel):
         five = 5
 
     name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=255, editable=False, default='')
     description = models.TextField(null=True, blank=True)
-    price = models.FloatField(null=True, blank=True)  # 345.24 $
+    price = models.FloatField(null=True, blank=True)
     image = models.ImageField(upload_to='products', null=True, blank=True)
     category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='products')
     quantity = models.IntegerField(default=0)
@@ -43,6 +40,9 @@ class Product(BaseModel):
                                               null=True, blank=True)
     discount = models.PositiveSmallIntegerField(null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        self.normalized_name = normalize_text(self.name)
+        super(Product, self).save(*args, **kwargs)
     @property
     def get_image_url(self):
         if self.image:
