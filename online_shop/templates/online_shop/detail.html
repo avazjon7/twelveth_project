@@ -1,58 +1,174 @@
-<!-- detail.html -->
 {% extends 'online_shop/base/base.html' %}
-{% load static %}
+
 {% block title %}
-    {{ product.name }}
+    Product Detail
 {% endblock %}
+{% block product_detail_content %}
+    <section class="py-5">
+        <div class="container px-4 px-lg-5 my-5">
+            <div class="row gx-4 gx-lg-5 align-items-center">
+                <div class="col-md-6">
+                    {% if product.get_image_url %}
+                        <img class="card-img-top mb-5 mb-md-0"
+                             src="{{ product.get_image_url }}" alt="..."/>
+                    {% else %}
+                        <img class="card-img-top mb-5 mb-md-0"
+                             src="https://dummyimage.com/600x700/dee2e6/6c757d.jpg" alt="..."/>
+                    {% endif %}
 
-{% block main_content %}
-<header class="bg-dark py-5">
-    <div class="container px-4 px-lg-5 my-5">
-        <div class="text-center text-white">
-            <h1 class="display-4 fw-bolder">{{ product.name }}</h1>
-            <p class="lead fw-normal text-white-50 mb-0">{{ product.description }}</p>
-        </div>
-    </div>
-</header>
-
-<div class="container mt-5">
-    <div class="row">
-        <div class="col-md-8">
-            <h3>Product Details</h3>
-            <p>{{ product.description }}</p>
-            <p>Price: ${{ product.price }}</p>
-        </div>
-        <div class="col-md-4">
-            <h3>Search Comments</h3>
-            <form method="get" action="">
-                <input type="text" name="q" class="form-control" placeholder="Search comments..." value="{{ request.GET.q }}">
-                <button type="submit" class="btn btn-primary mt-2">Search</button>
-            </form>
-            <h3 class="mt-5">Comments</h3>
-            {% for comment in comments %}
-                <div class="comment">
-                    <p><strong>{{ comment.name }}</strong>: {{ comment.body }}</p>
                 </div>
-            {% empty %}
-                <p>No comments found.</p>
-            {% endfor %}
-        </div>
-    </div>
+                <div class="col-md-6">
+                    <div class="small mb-1">Quantity : {{ product.quantity }}</div>
+                    <div>
+                        <a href="{% url 'delete_product' product.id %}">
+                            <button type="button" class="btn btn-danger">Delete</button>
+                        </a>
+                        <a href="{% url 'edit_product' product.id %}">
+                            <button type="button" class="btn btn-secondary">Edit</button>
+                        </a>
+                    </div>
+                    <h1 class="display-5 fw-bolder">{{ product.name }}</h1>
+                    <div class="fs-5 mb-5">
+                        {% if product.discount %}
+                            <span class="text-decoration-line-through">${{ product.price }}</span>
+                            <span>${{ product.discounted_price }}</span>
+                        {% else %}
+                            ${{ product.price }}
+                        {% endif %}
 
-    <div class="row mt-5">
-        <h3>Related Products</h3>
-        {% for related_product in related_products %}
-            <div class="col-md-3 mb-4">
-                <div class="card">
-                    <img src="{{ related_product.image.url }}" class="card-img-top" alt="{{ related_product.name }}">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ related_product.name }}</h5>
-                        <p class="card-text">${{ related_product.price }}</p>
-                        <a href="{% url 'product_detail' related_product.id %}" class="btn btn-primary">View Product</a>
+                    </div>
+                    <p class="lead">{{ product.description }}</p>
+                    <div class="d-flex">
+                        <form method="post" action="{% url 'add_order' product.id %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <h2>Place an order</h2>
+                            </div>
+                            <div>
+                                <ul>
+                                    {% for message in messages %}
+                                        {% if 'error' in message.tags %}
+                                            <li style="color: red">{{ message }}</li>
+                                        {% elif 'success' in message.tags %}
+                                            <li style="color: green">{{ message }}</li>
+                                        {% endif %}
+
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="formGroupExampleInput">Your name</label>
+                                <input type="text" class="form-control" name="name" placeholder="Your name">
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="formGroupExampleInput2">Your phone</label>
+                                <input type="text" class="form-control" name="phone" placeholder="Your phone">
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="formGroupExampleInput2">Quantity</label>
+                                <input type="number" class="form-control" name="quantity" placeholder="Quantity">
+                            </div>
+
+
+                            <div class="form-group mb-3">
+
+                                <input type="submit" class="btn btn-success" value="Send">
+                            </div>
+                        </form>
+
                     </div>
                 </div>
             </div>
-        {% endfor %}
+        </div>
+    </section>
+
+
+    <div class="container mt-4 mb-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center">
+                    <h2>Latest comments({{ product.comments.count }})</h2>
+                </div>
+                {% for comment in comments %}
+
+                    <div class="media card p-4 mt-2">
+                        <div class="media-body">
+
+                            <h3 class="mt-0">{{ comment.name }} => {{ comment.created_at }}</h3>
+
+
+                            {{ comment.body }}
+                        </div>
+                    </div>
+                {% endfor %}
+
+
+            </div>
+
+            <div class="col-8 offset-2 mt-5">
+
+                <div class=" p-5">
+                    <div class="text-center">
+                        <h3>Add Comment</h3>
+                    </div>
+                    <div>
+                        {% if form.errors %}
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <div class="alert alert-danger">
+                                        <strong>{{ error|escape }}</strong>
+                                    </div>
+                                {% endfor %}
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <form method="post" action="{% url 'add_comment' product.id %}">
+                        {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label for="formGroupExampleInput">Your name</label>
+                            <input type="text" class="form-control" name="name" placeholder="Your name">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="formGroupExampleInput2">Your email</label>
+                            <input type="text" class="form-control" name="email" placeholder="Your email">
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="formGroupExampleInput2">Your comment</label>
+                            <textarea name="body" class="form-control" id="" cols="30" rows="10"></textarea>
+                        </div>
+
+                        <div class="form-group mb-3">
+
+                            <input type="submit" class="btn btn-success" value="Send">
+                        </div>
+                    </form>
+
+                </div>
+
+            </div>
+        </div>
     </div>
-</div>
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="row mt-5">
+                <h3>Related Products</h3>
+                {% for related_product in related_products %}
+                    <div class="col-md-3 mb-4">
+                        <div class="card">
+                            <img src="{{ related_product.image.url }}" class="card-img-top"
+                                 alt="{{ related_product.name }}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ related_product.name }}</h5>
+                                <p class="card-text">${{ related_product.price }}</p>
+                                <a href="{% url 'product_detail' related_product.id %}" class="btn btn-primary">View
+                                    Product</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
 {% endblock %}
